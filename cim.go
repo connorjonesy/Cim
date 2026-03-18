@@ -3,126 +3,137 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	"charm.land/glamour/v2/styles"
+	"charm.land/lipgloss/v2"
 )
+
+const content = `
+# CIM - Vim IMpaired
+
+## Cim version 0.0.1
+
+by Connor Jones
+
+Cim is open source and freely distributable
+
+Lorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapien vitae pellentesque sem placerat. In id cursus mi pretium tellus duis convallis. Tempus leo eu aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. Iaculis massa nisl malesuada lacinia integer nunc posuere. Ut hendrerit semper vel class aptent taciti sociosqu. Ad litora torquent per conubia nostra inceptos himenaeos.
+
+
+iasdasd Lorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapien vitae pellentesque sem placerat. In id cursus mi pretium tellus duis convallis. Tempus leo eu aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. Iaculis massa nisl malesuada lacinia integer nunc posuere. Ut hendrerit semper vel class aptent taciti sociosqu. Ad litora torquent per conubia nostra inceptos himenaeos.
+`
+
+var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render
 
 /*-------------------------------------------*/
 /*The model will store the applications state*/
 /*-------------------------------------------*/
-type model struct{
-	choices []string
-	cursor int
-	selected map[int]struct{}
+type model struct {
+	viewport viewport.Model
 }
 
 /*-------------------------------------------*/
 /*Define apps initial state*/
 /*-------------------------------------------*/
-func initialModel() model {
-	return model{
-		// Our to-do list is a grocery list
-		choices:  []string{"Buy carrots", "Buy celery", "Buy yummies", "Buy Chicken"},
+func initModel(isDark bool) (*model, error) {
+	const (
+		width  = 78
+		height = 20
+	)
 
-		// A map which indicates which choices are selected. We're using
-		// the  map like a mathematical set. The keys refer to the indexes
-		// of the `choices` slice, above.
-		selected: make(map[int]struct{}),
+	vp := viewport.New()
+	vp.SetWidth(width)
+	vp.SetHeight(height)
+	vp.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		PaddingRight(2)
+
+	// We need to adjust the width of the glamour render from our main width
+	// to account for a few things:
+	//
+	//  * The viewport border width
+	//  * The viewport padding
+	//  * The viewport margins
+	//  * The gutter glamour applies to the left side of the content
+	//
+	const glamourGutter = 3
+	glamourRenderWidth := width - vp.Style.GetHorizontalFrameSize() - glamourGutter
+
+	style := styles.DarkStyleConfig
+	if !isDark {
+		style = styles.LightStyleConfig
 	}
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithStyles(style),
+		glamour.WithWordWrap(glamourRenderWidth),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	str, err := renderer.Render(content)
+	if err != nil {
+		return nil, err
+	}
+
+	vp.SetContent(str)
+
+	return &model{
+		viewport: vp,
+	}, nil
 }
 
 func (m model) Init() tea.Cmd {
-    // Just return `nil`, which means "no I/O right now, please."
-    return nil
+	return nil
 }
-
 
 /*-------------------------------------------*/
 /*Handle State Changes in Update*/
 /*-------------------------------------------*/
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-
-    // Is it a key press?
-    case tea.KeyPressMsg:
-
-        // Cool, what was the actual key pressed?
-        switch msg.String() {
-
-        // These keys should exit the program.
-        case "ctrl+c", "q":
-            return m, tea.Quit
-
-        // The "k" keys move the cursor up
-        case "k":
-            if m.cursor > 0 {
-                m.cursor--
-            }
-
-        // The "j" key move the cursor down
-        case "j":
-            if m.cursor < len(m.choices)-1 {
-                m.cursor++
-            }
-
-        // The "enter" key and the space bar toggle the selected state
-        // for the item that the cursor is pointing at.
-        case "enter", "space":
-            _, ok := m.selected[m.cursor]
-            if ok {
-                delete(m.selected, m.cursor)
-            } else {
-                m.selected[m.cursor] = struct{}{}
-            }
-        }
-    }
-
-    // Return the updated model to the Bubble Tea runtime for processing.
-    // Note that we're not returning a command.
-    return m, nil
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "q", "ctrl+c", "esc":
+			return m, tea.Quit
+		default:
+			var cmd tea.Cmd
+			m.viewport, cmd = m.viewport.Update(msg)
+			return m, cmd
+		}
+	default:
+		return m, nil
+	}
 }
-
 
 /*-------------------------------------------*/
 /*Render the UI*/
 /*-------------------------------------------*/
 func (m model) View() tea.View {
-    // The header
-    s := "What should we buy at the market?\n\n"
-
-    // Iterate over our choices
-    for i, choice := range m.choices {
-
-        // Is the cursor pointing at this choice?
-        cursor := " " // no cursor
-        if m.cursor == i {
-            cursor = ">" // cursor!
-        }
-
-        // Is this choice selected?
-        checked := " " // not selected
-        if _, ok := m.selected[i]; ok {
-            checked = "x" // selected!
-        }
-
-        // Render the row
-        s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
-    }
-
-    // The footer
-    s += "\nPress q to quit.\n"
-
-    // Send the UI for rendering
-    return tea.NewView(s)
+	return tea.NewView(m.viewport.View() + m.helpView())
 }
 
+func (m model) helpView() string {
+	return helpStyle("\n  j/k: Navigate • q: Quit\n")
+}
 
 /*-------------------------------------------*/
-/*Let Er Rip*/
+/*Let It Rip*/
 /*-------------------------------------------*/
 func main() {
-    p := tea.NewProgram(initialModel())
-    if _, err := p.Run(); err != nil {
-        fmt.Printf("Alas, there's been an error: %v", err)
-        os.Exit(1)
-    }
+	hasDarkBg := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	example, err := initModel(hasDarkBg)
+	if err != nil {
+		fmt.Println("Could not initialize Bubble Tea model:", err)
+		os.Exit(1)
+	}
+
+	if _, err := tea.NewProgram(example).Run(); err != nil {
+		fmt.Println("Bummer, there's been an error:", err)
+		os.Exit(1)
+	}
 }
