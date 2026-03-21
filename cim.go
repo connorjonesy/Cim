@@ -26,7 +26,8 @@ Lorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapi
 iasdasd Lorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapien vitae pellentesque sem placerat. In id cursus mi pretium tellus duis convallis. Tempus leo eu aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. Iaculis massa nisl malesuada lacinia integer nunc posuere. Ut hendrerit semper vel class aptent taciti sociosqu. Ad litora torquent per conubia nostra inceptos himenaeos.
 `
 
-var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render
+/*Colour of the help text*/
+var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("31")).Render
 
 /*-------------------------------------------*/
 /*The model will store the applications state*/
@@ -40,7 +41,7 @@ type model struct {
 /*-------------------------------------------*/
 func initModel(isDark bool) (*model, error) {
 	const (
-		width  = 78
+		width  = 62
 		height = 20
 	)
 
@@ -49,12 +50,11 @@ func initModel(isDark bool) (*model, error) {
 	vp.SetHeight(height)
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
+		BorderForeground(lipgloss.Color("31")).
 		PaddingRight(2)
 
 	// We need to adjust the width of the glamour render from our main width
 	// to account for a few things:
-	//
 	//  * The viewport border width
 	//  * The viewport padding
 	//  * The viewport margins
